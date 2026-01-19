@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import { AlertTriangle, TrendingUp, TrendingDown, Activity, DollarSign, Gauge, Shield, Zap, Globe, BarChart3, Clock, Target, RefreshCw, Fuel, Banknote } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { AlertTriangle, TrendingUp, TrendingDown, Activity, DollarSign, Gauge, Shield, Zap, Globe, BarChart3, Clock, Target, RefreshCw, Fuel, Banknote, Loader2 } from 'lucide-react';
 
-// Datos actuales - Enero 19, 2026
-const CURRENT_DATA = {
+// Datos por defecto (fallback)
+const DEFAULT_DATA = {
   fedBalance: 6.58,
   tga: 0.841,
   rrp: 0.005,
@@ -36,7 +36,7 @@ const CURRENT_DATA = {
   nextDebtCeilingDeadline: '2026-01-30',
   fedChairTermExpiry: '2026-05-15',
   midtermElection: '2026-11-03',
-  lastUpdate: '2026-01-19T12:00:00',
+  lastUpdate: new Date().toISOString(),
 };
 
 // Colores
@@ -219,7 +219,37 @@ const CountdownCard = ({ label, date, icon: Icon }: any) => {
 };
 
 export default function Dashboard() {
-  const [data] = useState(CURRENT_DATA);
+  const [data, setData] = useState(DEFAULT_DATA);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = useCallback(async (isRefresh = false) => {
+    try {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+      
+      const res = await fetch('/api/liquidity');
+      if (!res.ok) throw new Error('Failed to fetch data');
+      
+      const newData = await res.json();
+      setData({ ...DEFAULT_DATA, ...newData });
+      setError(null);
+    } catch (err) {
+      console.error('Fetch error:', err);
+      setError('Error al cargar datos. Usando valores por defecto.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+    // Auto-refresh every 5 minutes
+    const interval = setInterval(() => fetchData(true), 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
   
   const netLiquidity = data.fedBalance - data.tga - data.rrp;
   
@@ -261,6 +291,36 @@ export default function Dashboard() {
     signalDescription = 'Volatilidad esperada. Reducir tamaño de posiciones.';
   }
 
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        backgroundColor: '#030712',
+        color: '#e2e8f0',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <Loader2 style={{ 
+            width: '48px', 
+            height: '48px', 
+            color: '#22d3ee',
+            animation: 'spin 1s linear infinite',
+          }} />
+          <p style={{ marginTop: '16px', color: '#9ca3af' }}>Cargando datos de mercado...</p>
+          <style>{`
+            @keyframes spin {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -268,6 +328,12 @@ export default function Dashboard() {
       color: '#e2e8f0',
       fontFamily: 'system-ui, -apple-system, sans-serif',
     }}>
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
       {/* Top Navigation Bar */}
       <div style={{
         backgroundColor: '#1e293b',
@@ -309,21 +375,32 @@ export default function Dashboard() {
             <span style={{ fontSize: '12px', color: '#6b7280' }}>
               Última actualización: {new Date(data.lastUpdate).toLocaleString()}
             </span>
-            <button style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '4px 12px',
-              borderRadius: '6px',
-              border: '1px solid rgba(100, 116, 139, 0.3)',
-              backgroundColor: 'transparent',
-              color: '#9ca3af',
-              fontSize: '12px',
-              cursor: 'pointer',
-            }}>
-              <RefreshCw style={{ width: '12px', height: '12px' }} />
-              Actualizar
+            <button 
+              onClick={() => fetchData(true)}
+              disabled={refreshing}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '4px 12px',
+                borderRadius: '6px',
+                border: '1px solid rgba(100, 116, 139, 0.3)',
+                backgroundColor: refreshing ? 'rgba(100, 116, 139, 0.2)' : 'transparent',
+                color: '#9ca3af',
+                fontSize: '12px',
+                cursor: refreshing ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {refreshing ? (
+                <Loader2 style={{ width: '12px', height: '12px', animation: 'spin 1s linear infinite' }} />
+              ) : (
+                <RefreshCw style={{ width: '12px', height: '12px' }} />
+              )}
+              {refreshing ? 'Actualizando...' : 'Actualizar'}
             </button>
+            {error && (
+              <span style={{ fontSize: '11px', color: '#f87171' }}>{error}</span>
+            )}
           </div>
         </div>
 
