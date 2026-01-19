@@ -25,11 +25,11 @@ const DEFAULT_DATA = {
   btcFundingRate: 0.008,
   btcOpenInterest: 45.2,
   btcMarketCap: 1850,
-  ismManufacturing: 48.2,
-  cpiYoY: 2.7,
-  coreCpiYoY: 2.8,
-  gdpGrowth: 4.3,
-  us10y: 4.52,
+  ismManufacturing: 49.3,
+  cpiYoY: 2.9,
+  coreCpiYoY: 3.2,
+  gdpGrowth: 5.3,
+  us10y: 4.19,
   deficitToGdp: 5.2,
   gdpGrowthTarget: 3.0,
   oilProductionMbpd: 13.3,
@@ -662,12 +662,12 @@ export default function Dashboard() {
             icon={TrendingDown}
           />
           <MetricCard
-            title="GDP Q3 2025"
+            title="GDP Q4 2025"
             value={`${data.gdpGrowth}%`}
-            subtitle="Anualizado"
+            subtitle="GDPNow Estimate"
             status="bullish"
             icon={Zap}
-            detail="vs consenso 3.2%"
+            detail="Atlanta Fed Jan 14"
           />
         </div>
 
