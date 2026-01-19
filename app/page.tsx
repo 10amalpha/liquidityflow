@@ -266,10 +266,29 @@ export default function Dashboard() {
       minHeight: '100vh',
       backgroundColor: '#030712',
       color: '#e2e8f0',
-      padding: '24px',
       fontFamily: 'system-ui, -apple-system, sans-serif',
     }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+      {/* Top Navigation Bar */}
+      <div style={{
+        backgroundColor: '#1e293b',
+        padding: '12px 24px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderBottom: '1px solid rgba(100, 116, 139, 0.3)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Activity style={{ width: '20px', height: '20px', color: '#22d3ee' }} />
+          <span style={{ fontSize: '16px', fontWeight: 600, color: '#e2e8f0' }}>LiquidityFlow</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+          <a href="https://10am.pro" target="_blank" rel="noopener noreferrer" style={{ fontSize: '14px', color: '#94a3b8', textDecoration: 'none' }}>10am.pro</a>
+          <a href="https://10am.pro/dashboards" target="_blank" rel="noopener noreferrer" style={{ fontSize: '14px', color: '#94a3b8', textDecoration: 'none' }}>Dashboards</a>
+          <a href="https://twitter.com/holdmybirra" target="_blank" rel="noopener noreferrer" style={{ fontSize: '14px', color: '#94a3b8', textDecoration: 'none' }}>@holdmybirra</a>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '24px' }}>
         {/* Header */}
         <div style={{ marginBottom: '32px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
