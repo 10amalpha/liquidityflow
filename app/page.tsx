@@ -339,8 +339,8 @@ const Dashboard = () => {
 
   const overallSignal = getOverallSignal();
 
-  const daysUntil = (dateStr) => {
-    const diff = new Date(dateStr) - new Date();
+  const daysUntil = (dateStr: string): number => {
+    const diff = new Date(dateStr).getTime() - new Date().getTime();
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
   };
 
