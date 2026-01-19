@@ -349,8 +349,7 @@ export default function Dashboard() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
           <a href="https://10am.pro" target="_blank" rel="noopener noreferrer" style={{ fontSize: '14px', color: '#94a3b8', textDecoration: 'none' }}>10am.pro</a>
-          <a href="https://10am.pro/dashboards" target="_blank" rel="noopener noreferrer" style={{ fontSize: '14px', color: '#94a3b8', textDecoration: 'none' }}>Dashboards</a>
-          <a href="https://twitter.com/holdmybirra" target="_blank" rel="noopener noreferrer" style={{ fontSize: '14px', color: '#94a3b8', textDecoration: 'none' }}>@holdmybirra</a>
+          <a href="https://10ampro-hub.vercel.app/" target="_blank" rel="noopener noreferrer" style={{ fontSize: '14px', color: '#94a3b8', textDecoration: 'none' }}>Dashboard</a>          <a href="https://twitter.com/holdmybirra" target="_blank" rel="noopener noreferrer" style={{ fontSize: '14px', color: '#94a3b8', textDecoration: 'none' }}>@holdmybirra</a>
         </div>
       </div>
 
