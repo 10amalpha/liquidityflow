@@ -48,7 +48,7 @@ async function getMarketData() {
     getYahooQuote('^VIX'),      // VIX
     getYahooQuote('DX-Y.NYB'),  // Dollar Index
     getYahooQuote('CL=F'),      // WTI Crude
-    getYahooQuote('JPY=X'),     // USD/JPY (inverted, need to calc)
+    getYahooQuote('USDJPY=X'),  // USD/JPY (correct symbol)
     getYahooQuote('^TNX'),      // 10Y Treasury Yield
     getYahooQuote('GC=F'),      // Gold
   ]);
@@ -57,8 +57,8 @@ async function getMarketData() {
     vix: vix || 15.4,
     dxy: dxy || 99.25,
     wti: wti || 59.44,
-    usdjpy: usdjpy ? (1 / usdjpy) * 10000 : 158.0, // Convert from JPY=X format
-    us10y: us10y ? us10y / 100 : 4.52, // Yahoo returns as percentage points
+    usdjpy: usdjpy || 158.0, // Direct USD/JPY rate
+    us10y: us10y ? us10y : 4.19, // ^TNX already returns percentage (e.g., 4.19)
     gold: gold || 2700,
   };
 }
@@ -119,11 +119,11 @@ export async function GET() {
       bojRate: 0.5,  // Update manually or find API
       jgb10y: 1.05,  // Update manually or find API
       
-      // Macro (updated less frequently)
-      ismManufacturing: 48.2,
-      cpiYoY: 2.7,
-      coreCpiYoY: 2.8,
-      gdpGrowth: 4.3,
+      // Macro (updated less frequently - manually update these)
+      ismManufacturing: 49.3,  // ISM Dec 2025
+      cpiYoY: 2.9,             // Dec 2025
+      coreCpiYoY: 3.2,         // Dec 2025
+      gdpGrowth: 5.3,          // Q4 2025 GDPNow estimate (Jan 14)
       
       // Bessent Framework
       deficitToGdp: 5.2,
