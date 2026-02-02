@@ -1,91 +1,93 @@
 import { NextResponse } from 'next/server';
 
-// FRED API - Free, no key required for basic access
-const FRED_BASE = 'https://api.stlouisfed.org/fred/series/observations';
-const FRED_API_KEY = process.env.FRED_API_KEY || 'your_fred_api_key_here';
-
-// Yahoo Finance API (via query1.finance.yahoo.com - no key needed)
-async function getYahooQuote(symbol: string): Promise<number | null> {
-  try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
-    const res = await fetch(url, { 
-      next: { revalidate: 300 }, // Cache for 5 minutes
-      headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
-    const data = await res.json();
-    const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
-    return price || null;
-  } catch (error) {
-    console.error(`Yahoo Finance error for ${symbol}:`, error);
-    return null;
-  }
-}
-
-// FRED Data
-async function getFredSeries(seriesId: string): Promise<number | null> {
-  try {
-    const url = `${FRED_BASE}?series_id=${seriesId}&api_key=${FRED_API_KEY}&file_type=json&sort_order=desc&limit=1`;
-    const res = await fetch(url, { next: { revalidate: 3600 } }); // Cache for 1 hour
-    const data = await res.json();
-    const value = data?.observations?.[0]?.value;
-    return value && value !== '.' ? parseFloat(value) : null;
-  } catch (error) {
-    console.error(`FRED error for ${seriesId}:`, error);
-    return null;
-  }
-}
-
-// Alternative: Scrape from public sources or use fallback values
+// ============================================================
+// Market Data from Yahoo Finance
+// ============================================================
 async function getMarketData() {
-  const [
-    vix,
-    dxy,
-    wti,
-    usdjpy,
-    us10y,
-    gold,
-  ] = await Promise.all([
-    getYahooQuote('^VIX'),      // VIX
-    getYahooQuote('DX-Y.NYB'),  // Dollar Index
-    getYahooQuote('CL=F'),      // WTI Crude
-    getYahooQuote('USDJPY=X'),  // USD/JPY (correct symbol)
-    getYahooQuote('^TNX'),      // 10Y Treasury Yield
-    getYahooQuote('GC=F'),      // Gold
-  ]);
-
-  return {
-    vix: vix || 15.4,
-    dxy: dxy || 99.25,
-    wti: wti || 59.44,
-    usdjpy: usdjpy || 158.0, // Direct USD/JPY rate
-    us10y: us10y ? us10y : 4.19, // ^TNX already returns percentage (e.g., 4.19)
-    gold: gold || 2700,
-  };
+  try {
+    const symbols = ['^VIX', 'DX-Y.NYB', 'CL=F', '^TNX', 'JPY=X', 'GC=F'];
+    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols.join(',')}`;
+    
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      next: { revalidate: 300 },
+    });
+    
+    if (!res.ok) throw new Error('Yahoo Finance unavailable');
+    
+    const data = await res.json();
+    const quotes = data.quoteResponse?.result || [];
+    
+    const findQuote = (symbol: string) => {
+      const q = quotes.find((q: any) => q.symbol === symbol);
+      return q?.regularMarketPrice || null;
+    };
+    
+    const usdjpy = findQuote('JPY=X');
+    const us10y = findQuote('^TNX');
+    
+    return {
+      vix: findQuote('^VIX') || 16.4,
+      dxy: findQuote('DX-Y.NYB') || 99.25,
+      wti: findQuote('CL=F') || 72.53,
+      usdjpy: usdjpy ? (1 / usdjpy) * 10000 : 155.2,
+      us10y: us10y ? us10y / 100 : 4.54,
+      gold: findQuote('GC=F') || 2800,
+    };
+  } catch {
+    return {
+      vix: 16.4,
+      dxy: 99.25,
+      wti: 72.53,
+      usdjpy: 155.2,
+      us10y: 4.54,
+      gold: 2800,
+    };
+  }
 }
 
-// Get Fed/Treasury data from FRED
+// ============================================================
+// Fed Data from FRED
+// ============================================================
 async function getFedData() {
-  // FRED Series IDs:
-  // WALCL - Fed Total Assets (Weekly)
-  // WTREGEN - TGA Balance (Weekly)  
-  // RRPONTSYD - Reverse Repo (Daily)
-  // TOTRESNS - Total Reserves (Monthly)
-  
-  const [fedBalance, tga, rrp, reserves] = await Promise.all([
-    getFredSeries('WALCL'),      // Fed Balance Sheet (Millions)
-    getFredSeries('WTREGEN'),    // TGA (Millions)
-    getFredSeries('RRPONTSYD'),  // RRP (Billions)
-    getFredSeries('TOTRESNS'),   // Bank Reserves (Billions)
-  ]);
+  try {
+    const series = ['WALCL', 'WDTGAL', 'RRPONTSYD', 'WRESBAL'];
+    const results = await Promise.all(
+      series.map(async (id) => {
+        const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${id}&sort_order=desc&limit=1&api_key=${process.env.FRED_API_KEY}&file_type=json`;
+        const res = await fetch(url, { next: { revalidate: 3600 } });
+        if (!res.ok) return null;
+        const data = await res.json();
+        return { id, value: parseFloat(data.observations?.[0]?.value || '0') };
+      })
+    );
 
-  return {
-    fedBalance: fedBalance ? fedBalance / 1000000 : 6.58, // Convert to Trillions
-    tga: tga ? tga / 1000000 : 0.841,                      // Convert to Trillions
-    rrp: rrp ? rrp / 1000 : 0.005,                         // Convert to Trillions
-    bankReserves: reserves ? reserves / 1000 : 2.99,       // Convert to Trillions
-  };
+    const getValue = (id: string) => results.find(r => r?.id === id)?.value || 0;
+
+    const walcl = getValue('WALCL');
+    const tga = getValue('WDTGAL');
+    const rrp = getValue('RRPONTSYD');
+    const reserves = getValue('WRESBAL');
+
+    return {
+      fedBalance: walcl ? walcl / 1000000 : 6.58,
+      tga: tga ? tga / 1000000 : 0.968,
+      rrp: rrp ? rrp / 1000 : 0.006,
+      bankReserves: reserves ? reserves / 1000 : 2.99,
+    };
+  } catch {
+    return {
+      fedBalance: 6.58,
+      tga: 0.968,
+      rrp: 0.006,
+      bankReserves: 2.99,
+    };
+  }
 }
 
+// ============================================================
+// API Handler
+// ============================================================
 export async function GET() {
   try {
     const [marketData, fedData] = await Promise.all([
@@ -99,42 +101,48 @@ export async function GET() {
       tga: fedData.tga,
       rrp: fedData.rrp,
       bankReserves: fedData.bankReserves,
-      
+
       // Thresholds (static)
       tgaStressThreshold: 0.650,
       reserveAbundanceThreshold: 2.5,
       usjpyDangerThreshold: 145,
       dxyAlertThreshold: 105,
       wtiAlertThreshold: 80,
-      
-      // Market Data
+
+      // Market Data (live from Yahoo)
       vix: marketData.vix,
       vixTermStructure: 'contango',
       dxy: marketData.dxy,
       wti: marketData.wti,
       usdjpy: marketData.usdjpy,
       us10y: marketData.us10y,
-      
+
       // Japan Carry Trade
-      bojRate: 0.5,  // Update manually or find API
-      jgb10y: 1.05,  // Update manually or find API
-      
-      // Macro (updated less frequently - manually update these)
-      ismManufacturing: 49.3,  // ISM Dec 2025
-      cpiYoY: 2.9,             // Dec 2025
-      coreCpiYoY: 3.2,         // Dec 2025
-      gdpGrowth: 5.3,          // Q4 2025 GDPNow estimate (Jan 14)
-      
+      bojRate: 0.5,
+      jgb10y: 1.05,
+
+      // BTC
+      btcFundingRate: 0.008,
+      btcOpenInterest: 45.2,
+      btcMarketCap: 1850,
+
+      // Macro — Updated Feb 2, 2026
+      ismManufacturing: 52.6,   // Jan 2026 ISM: EXPANSION
+      cpiYoY: 2.7,              // Dec 2025 BLS
+      coreCpiYoY: 2.6,          // Dec 2025 BLS (lowest since Mar 2021)
+      gdpGrowth: 2.3,           // Q4 2025 advance estimate
+
       // Bessent Framework
       deficitToGdp: 5.2,
       gdpGrowthTarget: 3.0,
       oilProductionMbpd: 13.3,
-      
+      foreignTreasuryHoldings: 8.67,
+
       // Important Dates
-      nextDebtCeilingDeadline: '2026-01-30',
+      nextDebtCeilingDeadline: '2026-06-30',
       fedChairTermExpiry: '2026-05-15',
       midtermElection: '2026-11-03',
-      
+
       // Timestamp
       lastUpdate: new Date().toISOString(),
     };
