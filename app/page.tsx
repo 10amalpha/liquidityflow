@@ -3,50 +3,59 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, TrendingUp, TrendingDown, Activity, DollarSign, Gauge, Shield, Zap, Globe, BarChart3, Clock, Target, RefreshCw, Fuel, Banknote, Loader2 } from 'lucide-react';
 
-// Datos por defecto (fallback)
+// ============================================================
+// DATOS — Última actualización: Febrero 2, 2026
+// Sources: FRED (WALCL, WDTGAL, RRPONTSYD), BLS, ISM, Treasury DTS
+// ============================================================
 const DEFAULT_DATA = {
-  fedBalance: 6.58,
-  tga: 0.841,
-  rrp: 0.005,
+  fedBalance: 6.58,        // WALCL Jan 28, 2026: $6,584,580M
+  tga: 0.968,              // DTS Jan 29, 2026: $968B (up from $841B)
+  rrp: 0.006,              // RRPONTSYD Jan 30, 2026: ~$6B (effectively zero)
   tgaStressThreshold: 0.650,
   reserveAbundanceThreshold: 2.5,
   bankReserves: 2.99,
-  vix: 15.4,
+  vix: 16.4,
   vixTermStructure: 'contango',
   bojRate: 0.5,
-  usdjpy: 158.0,
+  usdjpy: 155.2,
   jgb10y: 1.05,
   usjpyDangerThreshold: 145,
   dxy: 99.25,
   dxyAlertThreshold: 105,
-  wti: 59.44,
+  wti: 72.53,              // Updated from $59.44
   wtiAlertThreshold: 80,
-  brent: 64.13,
+  brent: 76.20,
   btcFundingRate: 0.008,
   btcOpenInterest: 45.2,
   btcMarketCap: 1850,
-  ismManufacturing: 49.3,
-  cpiYoY: 2.9,
-  coreCpiYoY: 3.2,
-  gdpGrowth: 5.3,
-  us10y: 4.19,
+  ismManufacturing: 52.6,  // Jan 2026: EXPANSION (was 49.3 in Dec)
+  cpiYoY: 2.7,             // Dec 2025 BLS
+  coreCpiYoY: 2.6,         // Dec 2025 BLS: lowest since Mar 2021
+  gdpGrowth: 2.3,          // Q4 2025 advance estimate
+  us10y: 4.54,
   deficitToGdp: 5.2,
   gdpGrowthTarget: 3.0,
   oilProductionMbpd: 13.3,
-  nextDebtCeilingDeadline: '2026-01-30',
+  foreignTreasuryHoldings: 8.67,
+  nextDebtCeilingDeadline: '2026-06-30', // X-date estimate mid-2026
   fedChairTermExpiry: '2026-05-15',
   midtermElection: '2026-11-03',
-  lastUpdate: new Date().toISOString(),
+  lastUpdate: '2026-02-02T12:00:00',
 };
 
-// Colores
-const colors = {
+// ============================================================
+// COLORES
+// ============================================================
+const colors: Record<string, { bg: string; border: string; text: string }> = {
   bullish: { bg: 'rgba(16, 185, 129, 0.2)', border: 'rgba(16, 185, 129, 0.5)', text: '#34d399' },
   bearish: { bg: 'rgba(239, 68, 68, 0.2)', border: 'rgba(239, 68, 68, 0.5)', text: '#f87171' },
   neutral: { bg: 'rgba(100, 116, 139, 0.2)', border: 'rgba(100, 116, 139, 0.5)', text: '#94a3b8' },
   caution: { bg: 'rgba(245, 158, 11, 0.2)', border: 'rgba(245, 158, 11, 0.5)', text: '#fbbf24' },
 };
 
+// ============================================================
+// METRIC CARD
+// ============================================================
 const MetricCard = ({ title, value, subtitle, status, icon: Icon, detail, threshold }: any) => {
   const color = colors[status as keyof typeof colors] || colors.neutral;
   
@@ -84,12 +93,15 @@ const MetricCard = ({ title, value, subtitle, status, icon: Icon, detail, thresh
         </div>
       )}
       {detail && (
-        <div style={{ marginTop: '8px', fontSize: '11px', color: '#6b7280' }}>{detail}</div>
+        <div style={{ marginTop: '4px', fontSize: '11px', color: '#6b7280' }}>{detail}</div>
       )}
     </div>
   );
 };
 
+// ============================================================
+// LIQUIDITY FORMULA
+// ============================================================
 const LiquidityFormula = ({ fedBalance, tga, rrp }: any) => {
   const netLiquidity = fedBalance - tga - rrp;
   return (
@@ -104,7 +116,7 @@ const LiquidityFormula = ({ fedBalance, tga, rrp }: any) => {
         Net Liquidity Flow
       </h3>
       <div style={{ fontFamily: 'monospace', fontSize: '14px', marginBottom: '16px', color: '#94a3b8' }}>
-        NET LIQUIDITY FLOW
+        NET LIQUIDITY = FED BALANCE SHEET − TGA − RRP
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontFamily: 'monospace' }}>
         <div style={{ textAlign: 'center' }}>
@@ -118,7 +130,7 @@ const LiquidityFormula = ({ fedBalance, tga, rrp }: any) => {
         </div>
         <span style={{ fontSize: '24px', color: '#ef4444' }}>−</span>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '20px', fontWeight: 700, color: '#a78bfa' }}>${rrp.toFixed(2)}T</div>
+          <div style={{ fontSize: '20px', fontWeight: 700, color: '#a78bfa' }}>${rrp.toFixed(3)}T</div>
           <div style={{ fontSize: '10px', color: '#6b7280' }}>RRP</div>
         </div>
         <span style={{ fontSize: '24px', color: '#22d3ee' }}>=</span>
@@ -131,74 +143,13 @@ const LiquidityFormula = ({ fedBalance, tga, rrp }: any) => {
   );
 };
 
-const SignalGauge = ({ label, value, threshold, unit, isAboveGood }: any) => {
-  const isGood = isAboveGood ? value >= threshold : value <= threshold;
-  const percentage = Math.min((value / (threshold * 1.5)) * 100, 100);
-  
-  return (
-    <div style={{ marginBottom: '16px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-        <span style={{ fontSize: '12px', color: '#9ca3af' }}>{label}</span>
-        <span style={{ fontSize: '12px', fontWeight: 600, color: isGood ? '#34d399' : '#f87171' }}>
-          {value}{unit}
-        </span>
-      </div>
-      <div style={{ height: '8px', backgroundColor: 'rgba(100, 116, 139, 0.3)', borderRadius: '9999px', overflow: 'hidden' }}>
-        <div style={{
-          height: '100%',
-          width: `${percentage}%`,
-          backgroundColor: isGood ? '#34d399' : '#f87171',
-          borderRadius: '9999px',
-          transition: 'width 0.5s',
-        }} />
-      </div>
-      <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '2px' }}>
-        Objetivo: {isAboveGood ? '>' : '<'}{threshold}{unit}
-      </div>
-    </div>
-  );
-};
-
-const ChecklistItem = ({ label, checked, metric, value, threshold }: any) => (
-  <div style={{
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: '12px',
-    padding: '12px',
-    borderRadius: '8px',
-    backgroundColor: checked ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-    border: `1px solid ${checked ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-  }}>
-    <div style={{
-      width: '20px',
-      height: '20px',
-      borderRadius: '4px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: checked ? '#34d399' : '#f87171',
-      color: '#0f172a',
-      fontSize: '12px',
-      fontWeight: 700,
-      flexShrink: 0,
-    }}>
-      {checked ? '✓' : '✗'}
-    </div>
-    <div style={{ flex: 1 }}>
-      <div style={{ fontSize: '13px', fontWeight: 500, color: checked ? '#34d399' : '#f87171' }}>{label}</div>
-      <div style={{ fontSize: '11px', color: '#6b7280' }}>{metric}</div>
-      <div style={{ fontSize: '11px', color: '#9ca3af' }}>{value}</div>
-      <div style={{ fontSize: '10px', color: '#6b7280' }}>vs {threshold}</div>
-    </div>
-  </div>
-);
-
+// ============================================================
+// COUNTDOWN
+// ============================================================
 const CountdownCard = ({ label, date, icon: Icon }: any) => {
-  const daysUntil = (dateStr: string): number => {
-    const diff = new Date(dateStr).getTime() - new Date().getTime();
-    return Math.ceil(diff / (1000 * 60 * 60 * 24));
-  };
-  const days = daysUntil(date);
+  const now = new Date();
+  const target = new Date(date);
+  const days = Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   const isUrgent = days <= 30;
   
   return (
@@ -218,26 +169,52 @@ const CountdownCard = ({ label, date, icon: Icon }: any) => {
   );
 };
 
+// ============================================================
+// CHECKLIST ITEM
+// ============================================================
+const ChecklistItem = ({ label, checked, detail }: any) => (
+  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '8px 0' }}>
+    <div style={{
+      width: '20px', height: '20px', borderRadius: '50%',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      backgroundColor: checked ? 'rgba(16, 185, 129, 0.8)' : 'rgba(239, 68, 68, 0.4)',
+      color: '#fff', fontSize: '12px', fontWeight: 700, flexShrink: 0, marginTop: '2px',
+    }}>
+      {checked ? '✓' : '✗'}
+    </div>
+    <div>
+      <div style={{ fontSize: '13px', color: checked ? '#34d399' : '#f87171', fontWeight: 600 }}>{label}</div>
+      <div style={{ fontSize: '11px', color: '#6b7280' }}>{detail}</div>
+    </div>
+  </div>
+);
+
+// ============================================================
+// MAIN DASHBOARD
+// ============================================================
 export default function Dashboard() {
   const [data, setData] = useState(DEFAULT_DATA);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [btcPrice, setBtcPrice] = useState<number | null>(null);
+  const [btcChange, setBtcChange] = useState<number | null>(null);
+  const [lastBtcUpdate, setLastBtcUpdate] = useState<string | null>(null);
 
+  // Fetch data from API (with fallback to defaults)
   const fetchData = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    
     try {
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
-      
       const res = await fetch('/api/liquidity');
-      if (!res.ok) throw new Error('Failed to fetch data');
-      
-      const newData = await res.json();
-      setData({ ...DEFAULT_DATA, ...newData });
-      setError(null);
-    } catch (err) {
-      console.error('Fetch error:', err);
-      setError('Error al cargar datos. Usando valores por defecto.');
+      if (res.ok) {
+        const apiData = await res.json();
+        setData(apiData);
+      } else {
+        console.log('API unavailable, using defaults.');
+      }
+    } catch {
+      console.log('API unavailable, using defaults.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -246,14 +223,31 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchData();
-    // Auto-refresh every 5 minutes
     const interval = setInterval(() => fetchData(true), 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [fetchData]);
-  
+
+  // BTC live price
+  useEffect(() => {
+    const fetchBtc = async () => {
+      try {
+        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true');
+        const json = await res.json();
+        if (json.bitcoin) {
+          setBtcPrice(json.bitcoin.usd);
+          setBtcChange(json.bitcoin.usd_24h_change);
+          setLastBtcUpdate(new Date().toLocaleTimeString());
+        }
+      } catch { /* silent */ }
+    };
+    fetchBtc();
+    const interval = setInterval(fetchBtc, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   const netLiquidity = data.fedBalance - data.tga - data.rrp;
-  
-  // Determinar status de cada métrica
+
+  // Status calculations
   const tgaStatus = data.tga > data.tgaStressThreshold ? 'caution' : 'bullish';
   const rrpStatus = data.rrp < 0.1 ? 'bullish' : 'caution';
   const vixStatus = data.vix < 15 ? 'caution' : data.vix > 40 ? 'bullish' : data.vix <= 25 ? 'bullish' : 'caution';
@@ -261,19 +255,18 @@ export default function Dashboard() {
   const dxyStatus = data.dxy < data.dxyAlertThreshold ? 'bullish' : 'bearish';
   const wtiStatus = data.wti < data.wtiAlertThreshold ? 'bullish' : 'bearish';
   const reservesStatus = data.bankReserves > data.reserveAbundanceThreshold ? 'bullish' : 'caution';
-  
-  // Contar señales
+  const ismStatus = data.ismManufacturing > 50 ? 'bullish' : data.ismManufacturing > 42.3 ? 'neutral' : 'bearish';
+
   const statuses = [tgaStatus, rrpStatus, vixStatus, usdJpyStatus, dxyStatus, wtiStatus, reservesStatus];
   const bullishCount = statuses.filter(s => s === 'bullish').length;
   const cautionCount = statuses.filter(s => s === 'caution').length;
   const bearishCount = statuses.filter(s => s === 'bearish').length;
-  
-  // Señal general
+
   let overallSignal = 'NEUTRAL';
   let signalColor = '#94a3b8';
   let signalBg = 'rgba(100, 116, 139, 0.2)';
   let signalDescription = 'Condiciones mixtas. Mantener posiciones actuales.';
-  
+
   if (bearishCount >= 2) {
     overallSignal = 'RISK OFF';
     signalColor = '#f87171';
@@ -289,155 +282,98 @@ export default function Dashboard() {
     signalColor = '#fbbf24';
     signalBg = 'rgba(245, 158, 11, 0.2)';
     signalDescription = 'Volatilidad esperada. Reducir tamaño de posiciones.';
+  } else if (bullishCount >= 4) {
+    overallSignal = 'RISK ON';
+    signalColor = '#34d399';
+    signalBg = 'rgba(16, 185, 129, 0.2)';
+    signalDescription = `${bullishCount} señales bullish. Mantener o incrementar exposición.`;
   }
 
-  if (loading) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        backgroundColor: '#030712',
-        color: '#e2e8f0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <Loader2 style={{ 
-            width: '48px', 
-            height: '48px', 
-            color: '#22d3ee',
-            animation: 'spin 1s linear infinite',
-          }} />
-          <p style={{ marginTop: '16px', color: '#9ca3af' }}>Cargando datos de mercado...</p>
-          <style>{`
-            @keyframes spin {
-              from { transform: rotate(0deg); }
-              to { transform: rotate(360deg); }
-            }
-          `}</style>
-        </div>
-      </div>
-    );
-  }
+  const usJapanSpread = (data.us10y || 4.54) - (data.jgb10y || 1.05);
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      backgroundColor: '#030712',
-      color: '#e2e8f0',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
-    }}>
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
-      {/* Top Navigation Bar */}
-      <div style={{
-        backgroundColor: '#1e293b',
-        padding: '12px 24px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        borderBottom: '1px solid rgba(100, 116, 139, 0.3)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Activity style={{ width: '20px', height: '20px', color: '#22d3ee' }} />
-          <span style={{ fontSize: '16px', fontWeight: 600, color: '#e2e8f0' }}>LiquidityFlow</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-          <a href="https://10am.pro" target="_blank" rel="noopener noreferrer" style={{ fontSize: '14px', color: '#94a3b8', textDecoration: 'none' }}>10am.pro</a>
-          <a href="https://10ampro-hub.vercel.app/" target="_blank" rel="noopener noreferrer" style={{ fontSize: '14px', color: '#94a3b8', textDecoration: 'none' }}>Dashboard</a>          <a href="https://twitter.com/holdmybirra" target="_blank" rel="noopener noreferrer" style={{ fontSize: '14px', color: '#94a3b8', textDecoration: 'none' }}>@holdmybirra</a>
-        </div>
-      </div>
+    <div style={{ minHeight: '100vh', backgroundColor: '#030712', color: '#e2e8f0', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '16px 16px 32px' }}>
 
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '24px' }}>
         {/* Header */}
-        <div style={{ marginBottom: '32px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-            <Activity style={{ width: '32px', height: '32px', color: '#22d3ee' }} />
-            <h1 style={{
-              fontSize: '36px',
-              fontWeight: 700,
-              background: 'linear-gradient(to right, #22d3ee, #3b82f6)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              margin: 0,
-            }}>
-              LiquidityFlow
-            </h1>
-          </div>
-          <p style={{ color: '#9ca3af', fontSize: '14px', margin: 0 }}>Monitoreo de liquidez macro en tiempo real</p>
-          <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <span style={{ fontSize: '12px', color: '#6b7280' }}>
-              Última actualización: {new Date(data.lastUpdate).toLocaleString()}
-            </span>
-            <button 
-              onClick={() => fetchData(true)}
-              disabled={refreshing}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '4px 12px',
-                borderRadius: '6px',
-                border: '1px solid rgba(100, 116, 139, 0.3)',
-                backgroundColor: refreshing ? 'rgba(100, 116, 139, 0.2)' : 'transparent',
-                color: '#9ca3af',
-                fontSize: '12px',
-                cursor: refreshing ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {refreshing ? (
-                <Loader2 style={{ width: '12px', height: '12px', animation: 'spin 1s linear infinite' }} />
-              ) : (
-                <RefreshCw style={{ width: '12px', height: '12px' }} />
-              )}
-              {refreshing ? 'Actualizando...' : 'Actualizar'}
-            </button>
-            {error && (
-              <span style={{ fontSize: '11px', color: '#f87171' }}>{error}</span>
-            )}
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '4px' }}>
+                <h1 style={{ fontSize: '28px', fontWeight: 700, background: 'linear-gradient(to right, #22d3ee, #3b82f6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', margin: 0 }}>
+                  LiquidityFlow
+                </h1>
+                <a href="https://10ampro-hub.vercel.app/" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#6b7280', textDecoration: 'none', padding: '2px 8px', border: '1px solid rgba(100,116,139,0.3)', borderRadius: '4px' }}>
+                  ← Dashboards
+                </a>
+              </div>
+              <p style={{ color: '#6b7280', fontSize: '13px', margin: 0 }}>
+                Monitoreo de liquidez macro en tiempo real
+              </p>
+              <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                  Última actualización: {new Date(data.lastUpdate).toLocaleString()}
+                </span>
+                <button
+                  onClick={() => fetchData(true)}
+                  disabled={refreshing}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '4px',
+                    padding: '4px 12px', borderRadius: '6px',
+                    border: '1px solid rgba(100, 116, 139, 0.3)',
+                    backgroundColor: refreshing ? 'rgba(100, 116, 139, 0.2)' : 'transparent',
+                    color: '#9ca3af', fontSize: '12px',
+                    cursor: refreshing ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {refreshing ? (
+                    <Loader2 style={{ width: '12px', height: '12px', animation: 'spin 1s linear infinite' }} />
+                  ) : (
+                    <RefreshCw style={{ width: '12px', height: '12px' }} />
+                  )}
+                  {refreshing ? 'Updating...' : 'Refresh'}
+                </button>
+              </div>
+            </div>
+
+            {/* BTC Price */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 16px', borderRadius: '8px', background: 'rgba(247, 147, 26, 0.1)', border: '1px solid rgba(247, 147, 26, 0.2)' }}>
+              <span style={{ fontSize: '18px' }}>₿</span>
+              <div>
+                <div style={{ fontSize: '18px', fontWeight: 700, color: '#f7931a' }}>
+                  {btcPrice ? `$${btcPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '...'}
+                </div>
+                {btcChange !== null && (
+                  <div style={{ fontSize: '11px', color: btcChange >= 0 ? '#34d399' : '#f87171' }}>
+                    {btcChange >= 0 ? '▲' : '▼'} {Math.abs(btcChange).toFixed(1)}% 24h
+                    {lastBtcUpdate && <span style={{ color: '#6b7280' }}> · {lastBtcUpdate}</span>}
+                  </div>
+                )}
+              </div>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#34d399', animation: 'pulse 2s infinite' }} />
+            </div>
           </div>
         </div>
 
         {/* Overall Signal */}
-        <div style={{
-          padding: '24px',
-          borderRadius: '16px',
-          backgroundColor: signalBg,
-          border: `2px solid ${signalColor}`,
-          marginBottom: '24px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+        <div style={{ marginBottom: '24px', padding: '16px 20px', borderRadius: '16px', background: signalBg, border: `2px solid ${signalColor}60` }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
             <div>
-              <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '4px' }}>SEÑAL GENERAL</div>
-              <div style={{ fontSize: '32px', fontWeight: 700, color: signalColor }}>{overallSignal}</div>
-              <div style={{ fontSize: '14px', color: '#9ca3af', marginTop: '4px' }}>{signalDescription}</div>
+              <div style={{ fontSize: '32px', fontWeight: 800, color: signalColor }}>{overallSignal}</div>
+              <div style={{ fontSize: '13px', color: '#94a3b8', maxWidth: '600px' }}>{signalDescription}</div>
             </div>
-            <div style={{ display: 'flex', gap: '16px' }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '24px', fontWeight: 700, color: '#34d399' }}>{bullishCount}</div>
-                <div style={{ fontSize: '11px', color: '#6b7280' }}>Bullish</div>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '24px', fontWeight: 700, color: '#fbbf24' }}>{cautionCount}</div>
-                <div style={{ fontSize: '11px', color: '#6b7280' }}>Caution</div>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '24px', fontWeight: 700, color: '#f87171' }}>{bearishCount}</div>
-                <div style={{ fontSize: '11px', color: '#6b7280' }}>Bearish</div>
-              </div>
+            <div style={{ display: 'flex', gap: '16px', fontSize: '14px' }}>
+              <span style={{ color: '#34d399' }}>● {bullishCount} Bullish</span>
+              <span style={{ color: '#fbbf24' }}>● {cautionCount} Caution</span>
+              <span style={{ color: '#f87171' }}>● {bearishCount} Bearish</span>
             </div>
           </div>
         </div>
 
         {/* Countdowns */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-          <CountdownCard label="Debt Ceiling" date={data.nextDebtCeilingDeadline} icon={Clock} />
-          <CountdownCard label="Fed Chair Term" date={data.fedChairTermExpiry} icon={Target} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '24px' }}>
+          <CountdownCard label="Debt Ceiling X-Date" date={data.nextDebtCeilingDeadline} icon={AlertTriangle} />
+          <CountdownCard label="Powell Term Expires" date={data.fedChairTermExpiry} icon={Clock} />
           <CountdownCard label="Midterms" date={data.midtermElection} icon={Globe} />
         </div>
 
@@ -455,7 +391,7 @@ export default function Dashboard() {
             status={tgaStatus}
             icon={Banknote}
             threshold={`< $${data.tgaStressThreshold * 1000}B`}
-            detail="Alto = drena liquidez"
+            detail="Alto = drena liquidez. Bessent puede inyectar bajándola."
           />
           <MetricCard
             title="RRP"
@@ -464,7 +400,7 @@ export default function Dashboard() {
             status={rrpStatus}
             icon={DollarSign}
             threshold="< $100B"
-            detail="Drenado = más liquidez"
+            detail="Drenado a cero = máxima liquidez disponible"
           />
           <MetricCard
             title="DXY"
@@ -491,195 +427,181 @@ export default function Dashboard() {
             status={vixStatus}
             icon={Activity}
             threshold="15-25 normal"
-            detail={data.vix < 15 ? '⚠️ Complacencia' : data.vix > 40 ? '🎯 Oportunidad' : '✓ Normal'}
-          />
-          <MetricCard
-            title="Bank Reserves"
-            value={`$${data.bankReserves}T`}
-            subtitle="Reservas Bancarias"
-            status={reservesStatus}
-            icon={Shield}
-            threshold={`> $${data.reserveAbundanceThreshold}T`}
-            detail="Abundancia = estabilidad"
+            detail={data.vix < 15 ? '⚠️ Complacencia' : data.vix > 40 ? '🔥 Capitulación = oportunidad' : '✓ Normal'}
           />
         </div>
 
-        {/* Japan Carry Trade Section */}
-        <div style={{
-          padding: '24px',
-          borderRadius: '16px',
-          backgroundColor: 'rgba(168, 85, 247, 0.1)',
-          border: '1px solid rgba(168, 85, 247, 0.3)',
-          marginBottom: '24px',
-        }}>
-          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#c4b5fd', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Globe style={{ width: '20px', height: '20px' }} />
+        {/* Japan Carry Trade */}
+        <div style={{ marginBottom: '24px', padding: '20px', borderRadius: '16px', backgroundColor: 'rgba(100, 116, 139, 0.1)', border: '1px solid rgba(100, 116, 139, 0.3)' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#e2e8f0', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 12px 0' }}>
+            <Globe style={{ width: '18px', height: '18px', color: '#60a5fa' }} />
             Japan Carry Trade
-          </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '16px' }}>
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
             <div>
-              <div style={{ fontSize: '12px', color: '#9ca3af' }}>USD/JPY</div>
-              <div style={{ fontSize: '24px', fontWeight: 700, color: usdJpyStatus === 'bullish' ? '#34d399' : '#f87171' }}>
-                {data.usdjpy}
-              </div>
-              <div style={{ fontSize: '10px', color: '#6b7280' }}>Umbral: &gt;{data.usjpyDangerThreshold}</div>
+              <div style={{ fontSize: '11px', color: '#6b7280' }}>USD/JPY</div>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: data.usdjpy > 145 ? '#34d399' : '#f87171' }}>{data.usdjpy}</div>
             </div>
             <div>
-              <div style={{ fontSize: '12px', color: '#9ca3af' }}>BOJ Rate</div>
-              <div style={{ fontSize: '24px', fontWeight: 700, color: '#c4b5fd' }}>{data.bojRate}%</div>
+              <div style={{ fontSize: '11px', color: '#6b7280' }}>BOJ Rate</div>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: '#e2e8f0' }}>{data.bojRate}%</div>
             </div>
             <div>
-              <div style={{ fontSize: '12px', color: '#9ca3af' }}>JGB 10Y</div>
-              <div style={{ fontSize: '24px', fontWeight: 700, color: '#c4b5fd' }}>{data.jgb10y}%</div>
+              <div style={{ fontSize: '11px', color: '#6b7280' }}>JGB 10Y</div>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: '#e2e8f0' }}>{data.jgb10y}%</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '11px', color: '#6b7280' }}>US-JP Spread</div>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: usJapanSpread > 3 ? '#34d399' : '#fbbf24' }}>{usJapanSpread.toFixed(2)}%</div>
             </div>
           </div>
-          {data.usdjpy < data.usjpyDangerThreshold && (
-            <div style={{
-              marginTop: '16px',
-              padding: '12px',
-              borderRadius: '8px',
-              backgroundColor: 'rgba(239, 68, 68, 0.2)',
-              border: '1px solid rgba(239, 68, 68, 0.5)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}>
-              <AlertTriangle style={{ width: '16px', height: '16px', color: '#f87171' }} />
-              <span style={{ fontSize: '13px', color: '#f87171' }}>
-                ⚠️ Si USD/JPY &lt; {data.usjpyDangerThreshold}: Riesgo de unwinding violento (ver Agosto 2024)
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Checklist */}
-        <div style={{
-          padding: '24px',
-          borderRadius: '16px',
-          backgroundColor: 'rgba(30, 41, 59, 0.5)',
-          border: '1px solid rgba(100, 116, 139, 0.3)',
-          marginBottom: '24px',
-        }}>
-          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#e2e8f0', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Target style={{ width: '20px', height: '20px', color: '#22d3ee' }} />
-            Checklist de Posicionamiento
-          </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
-            <ChecklistItem
-              label="TGA bajo umbral"
-              checked={data.tga < data.tgaStressThreshold}
-              metric="Treasury General Account"
-              value={`$${(data.tga * 1000).toFixed(0)}B`}
-              threshold={`<$${data.tgaStressThreshold * 1000}B`}
-            />
-            <ChecklistItem
-              label="RRP drenado"
-              checked={data.rrp < 0.1}
-              metric="Reverse Repo Facility"
-              value={`$${(data.rrp * 1000).toFixed(0)}B`}
-              threshold="<$100B"
-            />
-            <ChecklistItem
-              label="VIX en rango normal"
-              checked={data.vix >= 15 && data.vix <= 25}
-              metric="Índice de volatilidad"
-              value={data.vix.toFixed(1)}
-              threshold="15-25"
-            />
-            <ChecklistItem
-              label="Yen estable (carry trade safe)"
-              checked={data.usdjpy > data.usjpyDangerThreshold}
-              metric="USD/JPY tipo de cambio"
-              value={data.usdjpy.toFixed(2)}
-              threshold={`>${data.usjpyDangerThreshold}`}
-            />
-            <ChecklistItem
-              label="Dollar no demasiado fuerte"
-              checked={data.dxy < data.dxyAlertThreshold}
-              metric="Dollar Index"
-              value={data.dxy.toFixed(2)}
-              threshold={`<${data.dxyAlertThreshold}`}
-            />
-            <ChecklistItem
-              label="Petróleo bajo control"
-              checked={data.wti < data.wtiAlertThreshold}
-              metric="WTI Crude Oil"
-              value={`$${data.wti.toFixed(2)}`}
-              threshold={`<$${data.wtiAlertThreshold}`}
-            />
-            <ChecklistItem
-              label="Reservas bancarias abundantes"
-              checked={data.bankReserves > data.reserveAbundanceThreshold}
-              metric="Bank Reserves"
-              value={`$${data.bankReserves}T`}
-              threshold={`>$${data.reserveAbundanceThreshold}T`}
-            />
+          <div style={{ marginTop: '12px', fontSize: '11px', color: '#f87171', padding: '8px', borderRadius: '8px', backgroundColor: 'rgba(239, 68, 68, 0.08)' }}>
+            ⚠️ Si USD/JPY {'<'} 145: Riesgo de unwinding violento del carry trade (ver Agosto 2024)
           </div>
         </div>
 
-        {/* Bessent 3-3-3 Framework */}
-        <div style={{
-          padding: '24px',
-          borderRadius: '16px',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
-          border: '1px solid rgba(59, 130, 246, 0.3)',
-          marginBottom: '24px',
-        }}>
-          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#93c5fd', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Target style={{ width: '20px', height: '20px' }} />
-            Framework Bessent 3-3-3
-          </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-            <SignalGauge label="Deficit/GDP" value={data.deficitToGdp} threshold={3} unit="%" isAboveGood={false} />
-            <SignalGauge label="GDP Growth" value={data.gdpGrowth} threshold={3} unit="%" isAboveGood={true} />
-            <SignalGauge label="Oil Production" value={data.oilProductionMbpd} threshold={16} unit="M bpd" isAboveGood={true} />
-          </div>
-        </div>
-
-        {/* Macro Data Row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+        {/* ISM + Macro Row */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
           <MetricCard
             title="ISM Manufacturing"
-            value={data.ismManufacturing}
-            subtitle="Contracción"
-            status={data.ismManufacturing > 50 ? 'bullish' : data.ismManufacturing > 47.3 ? 'neutral' : 'bearish'}
+            value={data.ismManufacturing.toString()}
+            subtitle={data.ismManufacturing > 50 ? '✅ Expansión' : '🔻 Contracción'}
+            status={ismStatus}
             icon={BarChart3}
-            detail=">47.3 = GDP positivo"
+            detail={data.ismManufacturing > 50 ? 'Primera expansión en 12 meses. New Orders 57.1. Reflación confirmada.' : '>42.3 = GDP positivo'}
           />
           <MetricCard
             title="CPI YoY"
             value={`${data.cpiYoY}%`}
             subtitle={`Core: ${data.coreCpiYoY}%`}
-            status={data.cpiYoY < 3 ? 'neutral' : 'caution'}
+            status={data.cpiYoY < 2.5 ? 'bullish' : data.cpiYoY < 3.5 ? 'neutral' : 'bearish'}
             icon={TrendingUp}
+            detail="Bessent: caída sustancial inflación H1 2026"
           />
           <MetricCard
             title="US 10Y Yield"
             value={`${data.us10y}%`}
             subtitle="Treasury 10 años"
-            status="neutral"
-            icon={TrendingDown}
+            status={data.us10y > 5 ? 'bearish' : data.us10y > 4.5 ? 'caution' : 'neutral'}
+            icon={DollarSign}
           />
           <MetricCard
             title="GDP Q4 2025"
             value={`${data.gdpGrowth}%`}
-            subtitle="GDPNow Estimate"
-            status="bullish"
+            subtitle="Advance Estimate"
+            status={data.gdpGrowth > 2 ? 'bullish' : 'neutral'}
             icon={Zap}
-            detail="Atlanta Fed Jan 14"
           />
         </div>
 
+        {/* Checklist de Posicionamiento */}
+        <div style={{ marginBottom: '24px', padding: '20px', borderRadius: '16px', backgroundColor: 'rgba(100, 116, 139, 0.08)', border: '1px solid rgba(100, 116, 139, 0.2)' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#e2e8f0', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 16px 0' }}>
+            <Shield style={{ width: '18px', height: '18px', color: '#a78bfa' }} />
+            Checklist de Posicionamiento
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 32px' }}>
+            <ChecklistItem
+              label="TGA bajo umbral de estrés"
+              checked={data.tga < data.tgaStressThreshold}
+              detail={`Treasury General Account $${(data.tga * 1000).toFixed(0)}B vs <$${data.tgaStressThreshold * 1000}B`}
+            />
+            <ChecklistItem
+              label="RRP drenado"
+              checked={data.rrp < 0.1}
+              detail={`Reverse Repo Facility $${(data.rrp * 1000).toFixed(0)}B vs <$100B`}
+            />
+            <ChecklistItem
+              label="ISM en expansión"
+              checked={data.ismManufacturing > 50}
+              detail={`ISM PMI ${data.ismManufacturing} vs >50. Reflación macro activa.`}
+            />
+            <ChecklistItem
+              label="VIX en rango normal"
+              checked={data.vix >= 15 && data.vix <= 25}
+              detail={`Índice de volatilidad ${data.vix} vs 15-25`}
+            />
+            <ChecklistItem
+              label="Yen estable (carry trade safe)"
+              checked={data.usdjpy > data.usjpyDangerThreshold}
+              detail={`USD/JPY tipo de cambio ~${data.usdjpy.toFixed(2)}`}
+            />
+            <ChecklistItem
+              label="Dollar no demasiado fuerte"
+              checked={data.dxy < data.dxyAlertThreshold}
+              detail={`Dollar Index ${data.dxy} vs <${data.dxyAlertThreshold}`}
+            />
+            <ChecklistItem
+              label="Petróleo bajo control"
+              checked={data.wti < data.wtiAlertThreshold}
+              detail={`WTI Crude Oil $${data.wti.toFixed(2)} vs <$${data.wtiAlertThreshold}`}
+            />
+            <ChecklistItem
+              label="Inflación en desinflación"
+              checked={data.cpiYoY < 3}
+              detail={`CPI ${data.cpiYoY}% YoY, Core ${data.coreCpiYoY}%`}
+            />
+            <ChecklistItem
+              label="Carry trade spread sano"
+              checked={usJapanSpread > 3}
+              detail={`US-Japan spread ${usJapanSpread.toFixed(2)}%`}
+            />
+          </div>
+        </div>
+
+        {/* Bessent 3-3-3 Framework */}
+        <div style={{ marginBottom: '24px', padding: '20px', borderRadius: '16px', backgroundColor: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#34d399', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 12px 0' }}>
+            <Target style={{ width: '18px', height: '18px' }} />
+            Framework Bessent 3-3-3
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+            <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(16, 185, 129, 0.08)' }}>
+              <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Déficit → 3% GDP</div>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: data.deficitToGdp > 4 ? '#fbbf24' : '#34d399' }}>
+                {data.deficitToGdp}%
+              </div>
+              <div style={{ fontSize: '10px', color: '#6b7280' }}>Meta: 3.0%</div>
+            </div>
+            <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(16, 185, 129, 0.08)' }}>
+              <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>GDP Growth → 3%</div>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: data.gdpGrowth >= 3 ? '#34d399' : '#fbbf24' }}>
+                {data.gdpGrowth}%
+              </div>
+              <div style={{ fontSize: '10px', color: '#6b7280' }}>Meta: 3.0%</div>
+            </div>
+            <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(16, 185, 129, 0.08)' }}>
+              <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Oil Production → 3M bpd+</div>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: '#34d399' }}>
+                {data.oilProductionMbpd}M
+              </div>
+              <div style={{ fontSize: '10px', color: '#6b7280' }}>bpd</div>
+            </div>
+          </div>
+        </div>
+
         {/* Footer */}
-        <div style={{ textAlign: 'center', paddingTop: '24px', borderTop: '1px solid rgba(100, 116, 139, 0.2)' }}>
-          <p style={{ fontSize: '12px', color: '#6b7280', fontStyle: 'italic' }}>
-            "El algoritmo es el mapa, la ejecución disciplinada es el territorio."
+        <div style={{ textAlign: 'center', color: '#4b5563', fontSize: '12px', borderTop: '1px solid rgba(100, 116, 139, 0.2)', paddingTop: '24px' }}>
+          <p style={{ margin: '0 0 4px 0', fontStyle: 'italic' }}>
+            &quot;El algoritmo es el mapa. La ejecución disciplinada es el territorio.&quot;
           </p>
-          <p style={{ fontSize: '11px', color: '#4b5563', marginTop: '8px' }}>
-            LiquidityFlow • Powered by 10AMPRO
+          <p style={{ margin: 0 }}>
+            Dashboard basado en el Algoritmo del 10x y el Framework Bessent · <span style={{ color: '#34d399' }}>10AMPRO</span>
           </p>
         </div>
+
       </div>
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
